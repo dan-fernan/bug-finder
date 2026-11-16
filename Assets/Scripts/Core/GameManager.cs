@@ -17,7 +17,17 @@ namespace BugDefense
         public GameState State { get; private set; } = GameState.Wave;
         public bool IsPlaying => State == GameState.Build || State == GameState.Wave;
 
-        public int TowersPlaced { get; private set; }
+        [Header("Economy ([Req B] limited number of towers)")]
+        public int startingCapacity = 8;
+        public int maxTowers = 14;            // hard cap regardless of points
+        [Range(0f, 1f)] public float midWaveRefund = 0.5f;
+
+        /// <summary>Total sprint capacity earned so far (starting points + wave rewards).</summary>
+        public int CapacityTotal { get; private set; }
+        /// <summary>Points currently tied up in placed towers.</summary>
+        public int CapacitySpent { get; private set; }
+        public int CapacityAvailable => CapacityTotal - CapacitySpent;
+        public int TowerCount { get; private set; }
         public int BugsSquashed { get; private set; }
 
         public GridMap Map { get; private set; }
@@ -36,6 +46,7 @@ namespace BugDefense
             // Reset static state on every boot / restart.
             Time.timeScale = 1f;
             EnemyRegistry.Clear();
+            CapacityTotal = startingCapacity;
 
             BuildScene();
         }
@@ -126,8 +137,29 @@ namespace BugDefense
             if (GameInput.KeyDown(KeyCodeLite.R)) Restart();
         }
 
-        public void RegisterTowerPlaced() => TowersPlaced++;
         public void RegisterBugSquashed() => BugsSquashed++;
+
+        public bool CanAfford(TowerType t) => t != null && CapacityAvailable >= t.cost;
+        public bool AtTowerCap => TowerCount >= maxTowers;
+
+        public void AddCapacity(int points) => CapacityTotal += points;
+
+        /// <summary>Deducts the tower's cost. Call only after validating placement.</summary>
+        public void OnTowerPlaced(TowerType t)
+        {
+            CapacitySpent += t.cost;
+            TowerCount++;
+        }
+
+        /// <summary>Refunds a removed tower: full cost during build, partial mid-wave. Returns points refunded.</summary>
+        public int OnTowerRemoved(TowerType t)
+        {
+            int refund = State == GameState.Wave ? Mathf.CeilToInt(t.cost * midWaveRefund) : t.cost;
+            CapacitySpent -= t.cost;
+            CapacityTotal -= t.cost - refund; // the non-refunded part is lost
+            TowerCount = Mathf.Max(0, TowerCount - 1);
+            return refund;
+        }
 
         /// <summary>[Req C] Game ends when an enemy completes its path.</summary>
         public void GameOver(Enemy culprit)

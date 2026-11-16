@@ -66,6 +66,39 @@ namespace BugDefense
             return m;
         }
 
+        /// <summary>Alpha-blended unlit material (placement ghost). Color alpha controls transparency.</summary>
+        public static Material Transparent(Color color)
+        {
+            string key = $"transparent_{ColorUtility.ToHtmlStringRGBA(color)}";
+            if (cache.TryGetValue(key, out var cached) && cached != null) return cached;
+
+            Material m;
+            var urpUnlit = UsingSRP ? Shader.Find("Universal Render Pipeline/Unlit") : null;
+            if (urpUnlit != null)
+            {
+                // Configure URP's surface options from code (what the Inspector's "Surface Type: Transparent" does).
+                m = new Material(urpUnlit);
+                m.SetFloat("_Surface", 1f);
+                m.SetFloat("_Blend", 0f);
+                m.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+                m.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+                if (m.HasProperty("_SrcBlendAlpha")) m.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
+                if (m.HasProperty("_DstBlendAlpha")) m.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
+                m.SetFloat("_ZWrite", 0f);
+                m.SetOverrideTag("RenderType", "Transparent");
+                m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                m.renderQueue = (int)RenderQueue.Transparent;
+            }
+            else
+            {
+                m = new Material(Shader.Find("Sprites/Default")); // alpha-blended, works in built-in RP
+            }
+            m.name = key;
+            SetColor(m, color);
+            cache[key] = m;
+            return m;
+        }
+
         public static Color Hex(string hex)
         {
             return ColorUtility.TryParseHtmlString(hex.StartsWith("#") ? hex : "#" + hex, out var c) ? c : Color.magenta;

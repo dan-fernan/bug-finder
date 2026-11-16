@@ -10,13 +10,14 @@ namespace BugDefense
         bool spent;
 
         public static Projectile Spawn(Transform parent, Vector3 pos, Vector3 velocity, float damage,
-                                       float size, Color color, Collider[] ignore, bool useGravity = false)
+                                       Vector3 scale, Color color, Collider[] ignore, bool useGravity = false)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Sphere); // keeps its SphereCollider (not a trigger)
             go.name = "Projectile";
             go.transform.SetParent(parent, false);
             go.transform.position = pos;
-            go.transform.localScale = Vector3.one * size;
+            if (velocity.sqrMagnitude > 0.0001f) go.transform.rotation = Quaternion.LookRotation(velocity); // elongated shots point forward
+            go.transform.localScale = scale;
             go.GetComponent<Renderer>().sharedMaterial = MaterialFactory.Lit(color, 3f);
 
             var col = go.GetComponent<Collider>();

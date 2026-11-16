@@ -3,72 +3,45 @@ using UnityEngine;
 namespace BugDefense
 {
     /// <summary>
-    /// A debugging-tool tower. Rotates its head (yaw) and barrel (pitch) toward its target and
-    /// fires physics projectiles at a fixed rate.
+    /// A debugging-tool tower. Rotates its head (yaw) and barrel (pitch) toward the predicted
+    /// intercept point and fires physics projectiles at its type's fire rate.
     /// </summary>
     public class Tower : MonoBehaviour
     {
-        [Header("Stats")]
-        public string displayName = "Linter";
-        public float fireRate = 2.5f;        // [Req C] shots per second
-        public float projectileSpeed = 26f;
-        public float height = 1.8f;          // fire point Y
-        public float damage = 7f;
-        public float range = 8f;
-        public Color color = new Color32(0x38, 0xBD, 0xF8, 0xFF);
+        public TowerType type;
 
         [Header("Aiming")]
         public bool usePrediction = true;
-        public float turnSpeed = 720f;       // deg/s
+        public float turnSpeed = 720f; // deg/s
         public bool showPredictionGizmo = true;
 
         [Header("Parts")]
         public Transform head, barrel, firePoint;
+
+        public BuildTile Tile { get; private set; }
+        public Enemy Target => target;
 
         Enemy target;
         Vector3 aimPoint;
         float cooldown, retargetTimer;
         Collider[] ownColliders;
 
-        public Enemy Target => target;
-
-        public static Tower Create(BuildTile tile)
+        public static Tower Create(BuildTile tile, TowerType type)
         {
-            var go = new GameObject("Tower");
+            var go = new GameObject("Tower_" + type.name);
             go.transform.SetParent(tile.transform, false); // child of tile: hovering it still resolves the tile
             go.transform.localPosition = Vector3.zero;
+
             var t = go.AddComponent<Tower>();
-            t.BuildVisual();
+            t.type = type;
+            t.Tile = tile;
+            var parts = TowerModel.Build(go.transform, type);
+            t.head = parts.head; t.barrel = parts.barrel; t.firePoint = parts.firePoint;
+            t.ownColliders = go.GetComponentsInChildren<Collider>();
+            // Small random start offset so a row of identical towers doesn't fire in lockstep.
+            t.cooldown = Random.Range(0f, 1f / type.fireRate);
             tile.occupant = t;
             return t;
-        }
-
-        void BuildVisual()
-        {
-            var baseMat = MaterialFactory.Lit(new Color(0.16f, 0.19f, 0.25f), 0f, 0.4f);
-            var tint = MaterialFactory.Lit(color, 0.25f, 0.5f);
-            var glow = MaterialFactory.Lit(color, 2f);
-
-            float columnH = Mathf.Max(0.3f, height - 0.3f);
-            // Unity cylinder is 2 units tall at scale 1, so scale.y = height/2.
-            ShapeFactory.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, columnH * 0.5f, 0f),
-                new Vector3(1.1f, columnH * 0.5f, 1.1f), baseMat, true, "Column");
-            ShapeFactory.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, columnH - 0.05f, 0f),
-                new Vector3(1.2f, 0.06f, 1.2f), glow, false, "Band");
-
-            head = ShapeFactory.Empty("Head", transform, new Vector3(0f, height, 0f));
-            ShapeFactory.Prim(PrimitiveType.Cube, head, Vector3.zero, new Vector3(0.75f, 0.5f, 0.75f), tint, false, "HeadMesh");
-
-            barrel = ShapeFactory.Empty("Barrel", head, Vector3.zero);
-            var b = ShapeFactory.Prim(PrimitiveType.Cylinder, barrel, new Vector3(0f, 0f, 0.5f),
-                new Vector3(0.2f, 0.4f, 0.2f), baseMat, false, "BarrelMesh");
-            b.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            ShapeFactory.Prim(PrimitiveType.Cylinder, barrel, new Vector3(0f, 0f, 0.9f),
-                new Vector3(0.24f, 0.03f, 0.24f), glow, false, "Muzzle").transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-
-            firePoint = ShapeFactory.Empty("FirePoint", barrel, new Vector3(0f, 0f, 1f));
-
-            ownColliders = GetComponentsInChildren<Collider>();
         }
 
         void Update()
@@ -85,9 +58,9 @@ namespace BugDefense
 
             if (target != null)
             {
-                // [Req C] Aim at the enemy. [Req A] Lead it based on its velocity.
+                // [Req C] Aim at the enemy. [Req A] Lead it based on its velocity and position.
                 aimPoint = usePrediction
-                    ? AimPredictor.PredictInterceptPoint(firePoint.position, target.AimPosition, target.Velocity, projectileSpeed)
+                    ? AimPredictor.PredictInterceptPoint(firePoint.position, target.AimPosition, target.Velocity, type.projectileSpeed)
                     : target.AimPosition;
                 AimAt(aimPoint);
             }
@@ -97,15 +70,16 @@ namespace BugDefense
             if (cooldown <= 0f && target != null)
             {
                 Fire();
-                cooldown = 1f / fireRate;
+                cooldown = 1f / type.fireRate;
             }
+            else if (cooldown < 0f) cooldown = 0f; // ready to fire the moment a target appears
         }
 
         bool InRange(Enemy e)
         {
             var d = e.transform.position - transform.position;
             d.y = 0f;
-            return d.sqrMagnitude <= range * range;
+            return d.sqrMagnitude <= type.range * type.range;
         }
 
         /// <summary>"First" targeting: the in-range bug furthest along the path (closest to PROD).</summary>
@@ -141,7 +115,8 @@ namespace BugDefense
         {
             Vector3 dir = (aimPoint - firePoint.position).normalized;
             var parent = GameManager.Instance != null ? GameManager.Instance.transform : null;
-            Projectile.Spawn(parent, firePoint.position, dir * projectileSpeed, damage, 0.22f, color, ownColliders);
+            Projectile.Spawn(parent, firePoint.position, dir * type.projectileSpeed, type.damage,
+                             type.projectileScale, type.color, ownColliders);
         }
 
         void OnDrawGizmos()
