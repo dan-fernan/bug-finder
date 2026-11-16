@@ -27,8 +27,8 @@ namespace BugDefense
         RectTransform canvasRect;
         Text status, toast, tooltipText;
         RectTransform tooltip;
-        GameObject gameOverPanel;
-        Text gameOverBody;
+        GameObject gameOverPanel, victoryPanel, bannerPanel;
+        Text gameOverBody, victoryBody, bannerText;
         GameObject helpPanel;
         float toastTimer;
         readonly List<TowerButton> buttons = new List<TowerButton>();
@@ -40,8 +40,14 @@ namespace BugDefense
             var root = canvas.transform;
 
             // Top-left status panel.
-            var statusPanel = UIFactory.Panel("Status", root, new Vector2(0, 1), new Vector2(20, -20), new Vector2(420, 170), PanelBg);
-            status = UIFactory.Label("StatusText", statusPanel.transform, "", 24, TextColor, TextAnchor.UpperLeft);
+            var statusPanel = UIFactory.Panel("Status", root, new Vector2(0, 1), new Vector2(20, -20), new Vector2(420, 196), PanelBg);
+            status = UIFactory.Label("StatusText", statusPanel.transform, "", 23, TextColor, TextAnchor.UpperLeft);
+
+            // Top-center build-phase banner ("Wave 2/6 starts in 7s - press SPACE").
+            var banner = UIFactory.Panel("Banner", root, new Vector2(0.5f, 1), new Vector2(0, -20), new Vector2(660, 64), PanelBg);
+            bannerPanel = banner.gameObject;
+            bannerText = UIFactory.Label("BannerText", banner.transform, "", 24, TextColor, TextAnchor.MiddleCenter);
+            bannerText.rectTransform.offsetMin = new Vector2(8, 4); bannerText.rectTransform.offsetMax = new Vector2(-8, -4);
 
             // Top-right instructions panel: [Req B] clear explanation of how to place towers. Always visible (H hides).
             var help = UIFactory.Panel("Help", root, new Vector2(1, 1), new Vector2(-20, -20), new Vector2(600, 214), PanelBg);
@@ -51,9 +57,9 @@ namespace BugDefense
                 "1. Press <b>1-3</b> (or click a button below) to pick a tower\n" +
                 "2. Move the mouse over a <b>dark tile</b> (not the green path)\n" +
                 "3. <b>Left-click</b> to place. <b>Right-click / Esc</b> to cancel\n" +
-                "Each tower costs sprint capacity. Max 14 towers.\n" +
-                "Right-click a placed tower to remove it (refund).\n" +
-                "<color=#94A3B8>H: hide help   R: restart</color>\n" +
+                "Each tower costs sprint capacity; +2 per cleared wave.\n" +
+                "Max 14 towers. Right-click a tower to remove it.\n" +
+                "<color=#94A3B8>SPACE: start wave now   H: hide help   R: restart</color>\n" +
                 "<color=#F87171>Don't let a single bug reach PROD!</color>",
                 19, TextColor, TextAnchor.UpperLeft);
 
@@ -71,14 +77,21 @@ namespace BugDefense
             toast = UIFactory.Label("ToastText", toastRt, "", 34, Color.white, TextAnchor.MiddleCenter);
             toast.gameObject.AddComponent<Outline>().effectColor = new Color(0, 0, 0, 0.85f);
 
-            // Game over panel.
-            var go = UIFactory.Panel("GameOver", root, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900, 360),
-                new Color(0.12f, 0.02f, 0.03f, 0.92f), true);
-            gameOverPanel = go.gameObject;
-            var title = UIFactory.Label("Title", go.transform, "PRODUCTION IS DOWN", 72, new Color(1f, 0.3f, 0.3f), TextAnchor.UpperCenter);
+            // End screens.
+            gameOverPanel = EndPanel(root, "GameOver", "PRODUCTION IS DOWN", new Color(1f, 0.3f, 0.3f),
+                new Color(0.12f, 0.02f, 0.03f, 0.93f), out gameOverBody);
+            victoryPanel = EndPanel(root, "Victory", "RELEASE SHIPPED", Green,
+                new Color(0.02f, 0.1f, 0.06f, 0.93f), out victoryBody);
+        }
+
+        static GameObject EndPanel(Transform root, string name, string titleText, Color titleColor, Color bg, out Text body)
+        {
+            var panel = UIFactory.Panel(name, root, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(960, 380), bg, true);
+            var title = UIFactory.Label("Title", panel.transform, titleText, 72, titleColor, TextAnchor.UpperCenter);
             title.fontStyle = FontStyle.Bold;
-            gameOverBody = UIFactory.Label("Body", go.transform, "", 32, TextColor, TextAnchor.LowerCenter);
-            gameOverPanel.SetActive(false);
+            body = UIFactory.Label("Body", panel.transform, "", 32, TextColor, TextAnchor.LowerCenter);
+            panel.gameObject.SetActive(false);
+            return panel.gameObject;
         }
 
         void BuildTowerBar(Transform root)
@@ -122,19 +135,25 @@ namespace BugDefense
 
             if (GameInput.KeyDown(KeyCodeLite.H) && helpPanel != null) helpPanel.SetActive(!helpPanel.activeSelf);
 
-            string state;
-            var sp = gm.Spawner;
-            if (sp != null && sp.TimeUntilFirst > 0f) state = $"First bugs in <color=#FACC15>{Mathf.CeilToInt(sp.TimeUntilFirst)}s</color>";
-            else state = $"Bugs on the path: <color=#EF4444>{EnemyRegistry.Count}</color>";
+            int waveShown = Mathf.Min(gm.WaveIndex + 1, gm.WaveCount);
+            string bugs = gm.State == GameState.Wave
+                ? $"Bugs remaining: <color=#EF4444>{gm.BugsRemaining}</color>"
+                : "Bugs remaining: <color=#94A3B8>-</color>";
 
             string capColor = gm.CapacityAvailable > 0 ? "#38BDF8" : "#F87171";
             string towerColor = gm.AtTowerCap ? "#F87171" : "#E2E8F0";
             status.text =
-                "<b>BUG DEFENSE</b>\n" +
-                state + "\n" +
+                $"<b>BUG DEFENSE</b>   Wave <color=#FACC15>{waveShown} / {gm.WaveCount}</color>\n" +
+                bugs + "\n" +
                 $"Capacity: <color={capColor}>{gm.CapacityAvailable} / {gm.CapacityTotal} pts</color>\n" +
                 $"Towers: <color={towerColor}>{gm.TowerCount} / {gm.maxTowers}</color>\n" +
                 $"Bugs squashed: <color=#1FD17A>{gm.BugsSquashed}</color>";
+
+            bool building = gm.State == GameState.Build;
+            if (bannerPanel.activeSelf != building) bannerPanel.SetActive(building);
+            if (building)
+                bannerText.text = $"Wave {gm.WaveIndex + 1}/{gm.WaveCount} starts in <color=#FACC15>{Mathf.CeilToInt(gm.BuildTimeLeft)}s</color>" +
+                                  " - press <b>SPACE</b> to start now";
 
             var selected = gm.Placer != null ? gm.Placer.Selected : null;
             foreach (var b in buttons)
@@ -191,11 +210,26 @@ namespace BugDefense
             if (gameOverPanel == null) return;
             HideTooltip();
             var gm = GameManager.Instance;
+            int survived = gm != null ? gm.WaveIndex : 0;
             gameOverBody.text =
                 $"{culpritName} shipped to production. You're on call now.\n" +
-                $"Bugs squashed: {(gm != null ? gm.BugsSquashed : 0)}\n\n" +
+                $"Waves survived: {survived} / {(gm != null ? gm.WaveCount : 0)}    Bugs squashed: {(gm != null ? gm.BugsSquashed : 0)}\n\n" +
                 "<color=#FACC15>Press R to restart</color>";
+            if (bannerPanel != null) bannerPanel.SetActive(false);
             gameOverPanel.SetActive(true);
+        }
+
+        public void ShowVictory()
+        {
+            if (victoryPanel == null) return;
+            HideTooltip();
+            var gm = GameManager.Instance;
+            victoryBody.text =
+                "Release shipped. Zero bugs in prod.\n" +
+                $"Bugs squashed: {(gm != null ? gm.BugsSquashed : 0)}    Towers deployed: {(gm != null ? gm.TowerCount : 0)}\n\n" +
+                "<color=#FACC15>Press R to play again</color>";
+            if (bannerPanel != null) bannerPanel.SetActive(false);
+            victoryPanel.SetActive(true);
         }
     }
 }

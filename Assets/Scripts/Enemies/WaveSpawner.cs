@@ -1,41 +1,56 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace BugDefense
 {
-    /// <summary>
-    /// Phase 1 spawner: after a short grace period, releases one bug at a steady interval,
-    /// slowly getting tougher. (Replaced by data-driven waves in a later phase.)
-    /// </summary>
+    /// <summary>Spawns the groups of the current wave at the "git push" pad. Waves are data (WaveDefinition).</summary>
     public class WaveSpawner : MonoBehaviour
     {
-        public float initialDelay = 8f;
-        public float spawnInterval = 1.2f;
-        public float baseHp = 20f;
-        public float hpGrowthPerSpawn = 0.6f;
-        public float speed = 4.5f;
+        [System.NonSerialized] public List<WaveDefinition> waves; // built from code (catalog references)
 
-        public int Spawned { get; private set; }
-        public float TimeUntilFirst => Mathf.Max(0f, initialDelay - elapsed);
+        void Awake() { waves = WaveDefinition.CreateDefault(); }
 
-        static readonly Color SyntaxRed = new Color32(0xEF, 0x44, 0x44, 0xFF);
+        public bool Running { get; private set; }
+        /// <summary>Enemies of the current wave not yet spawned.</summary>
+        public int PendingCount { get; private set; }
+        public bool AllSpawned => !Running || PendingCount == 0;
 
-        float elapsed, timer;
+        WaveDefinition current;
+        float elapsed;
+        int[] spawnedPerGroup;
+
+        public void StartWave(int index)
+        {
+            current = waves[index];
+            elapsed = 0f;
+            spawnedPerGroup = new int[current.groups.Count];
+            PendingCount = current.TotalCount;
+            Running = true;
+        }
+
+        public void Stop() { Running = false; PendingCount = 0; }
 
         void Update()
         {
+            if (!Running || current == null) return;
             var gm = GameManager.Instance;
-            if (gm == null || !gm.IsPlaying) return;
+            if (gm == null || gm.State != GameState.Wave) return;
 
             elapsed += Time.deltaTime;
-            if (elapsed < initialDelay) return;
-
-            timer -= Time.deltaTime;
-            if (timer > 0f) return;
-            timer = spawnInterval;
-
-            var wp = PathDefinition.WorldWaypoints;
-            Enemy.Spawn(transform, wp[0], 1, "Syntax Error", baseHp + Spawned * hpGrowthPerSpawn, speed, 0.7f, SyntaxRed);
-            Spawned++;
+            var spawnPos = PathDefinition.WorldWaypoints[0];
+            for (int g = 0; g < current.groups.Count; g++)
+            {
+                var group = current.groups[g];
+                // Spawn every enemy of this group whose scheduled time has passed.
+                while (spawnedPerGroup[g] < group.count &&
+                       elapsed >= group.startTime + spawnedPerGroup[g] * group.interval)
+                {
+                    Enemy.Spawn(transform, group.type, spawnPos, 1);
+                    spawnedPerGroup[g]++;
+                    PendingCount--;
+                }
+            }
+            if (PendingCount <= 0) Running = false;
         }
     }
 }

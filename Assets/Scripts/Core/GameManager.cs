@@ -14,8 +14,20 @@ namespace BugDefense
     {
         public static GameManager Instance { get; private set; }
 
-        public GameState State { get; private set; } = GameState.Wave;
+        public GameState State { get; private set; } = GameState.Build;
         public bool IsPlaying => State == GameState.Build || State == GameState.Wave;
+
+        [Header("Waves")]
+        public float buildPhaseSeconds = 10f;
+        public float firstBuildPhaseSeconds = 20f; // a little extra time to read the help and place towers
+        public int capacityPerWave = 2;
+
+        /// <summary>0-based index of the current wave (during Wave) or the next wave (during Build).</summary>
+        public int WaveIndex { get; private set; }
+        public int WaveCount => Spawner != null && Spawner.waves != null ? Spawner.waves.Count : 0;
+        public float BuildTimeLeft { get; private set; }
+        /// <summary>Bugs left in the current wave: alive plus not yet spawned.</summary>
+        public int BugsRemaining => EnemyRegistry.Count + (Spawner != null ? Spawner.PendingCount : 0);
 
         [Header("Economy ([Req B] limited number of towers)")]
         public int startingCapacity = 8;
@@ -49,6 +61,10 @@ namespace BugDefense
             CapacityTotal = startingCapacity;
 
             BuildScene();
+
+            State = GameState.Build;
+            WaveIndex = 0;
+            BuildTimeLeft = firstBuildPhaseSeconds;
         }
 
         void OnDestroy()
@@ -134,7 +150,48 @@ namespace BugDefense
         void Update()
         {
             // Uses unscaled input polling, so R works even while Time.timeScale == 0.
-            if (GameInput.KeyDown(KeyCodeLite.R)) Restart();
+            if (GameInput.KeyDown(KeyCodeLite.R)) { Restart(); return; }
+
+            switch (State)
+            {
+                case GameState.Build:
+                    BuildTimeLeft -= Time.deltaTime;
+                    if (BuildTimeLeft <= 0f || GameInput.KeyDown(KeyCodeLite.Space)) StartWave();
+                    break;
+
+                case GameState.Wave:
+                    // A wave is cleared once everything has spawned and no bugs are left alive.
+                    if (Spawner.AllSpawned && EnemyRegistry.Count == 0) WaveCleared();
+                    break;
+            }
+        }
+
+        void StartWave()
+        {
+            State = GameState.Wave;
+            BuildTimeLeft = 0f;
+            Spawner.StartWave(WaveIndex);
+            var w = Spawner.waves[WaveIndex];
+            if (Hud != null) Hud.Toast($"Wave {WaveIndex + 1}/{WaveCount}: {w.title}", WaveIndex == WaveCount - 1, 2.5f);
+        }
+
+        void WaveCleared()
+        {
+            WaveIndex++;
+            if (WaveIndex >= WaveCount) { Victory(); return; }
+
+            AddCapacity(capacityPerWave);
+            State = GameState.Build;
+            BuildTimeLeft = buildPhaseSeconds;
+            if (Hud != null) Hud.Toast($"Wave {WaveIndex} cleared! +{capacityPerWave} capacity", false, 2.5f);
+        }
+
+        void Victory()
+        {
+            State = GameState.Victory;
+            Spawner.Stop();
+            Time.timeScale = 0f;
+            if (Hud != null) Hud.ShowVictory();
         }
 
         public void RegisterBugSquashed() => BugsSquashed++;
@@ -166,6 +223,7 @@ namespace BugDefense
         {
             if (!IsPlaying) return;
             State = GameState.GameOver;
+            if (Spawner != null) Spawner.Stop();
             Time.timeScale = 0f;
             if (Prod != null) Prod.SetAlarm(true);
             if (Hud != null) Hud.ShowGameOver(culprit != null ? culprit.DisplayName : "A bug");
