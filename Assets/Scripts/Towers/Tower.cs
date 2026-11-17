@@ -23,6 +23,8 @@ namespace BugDefense
 
         Enemy target;
         Vector3 aimPoint;
+        Vector3 launchVelocity; // ballistic towers only
+        bool hasSolution;
         float cooldown, retargetTimer;
         Collider[] ownColliders;
 
@@ -56,18 +58,35 @@ namespace BugDefense
                 target = FindTarget();
             }
 
+            hasSolution = false;
             if (target != null)
             {
-                // [Req C] Aim at the enemy. [Req A] Lead it based on its velocity and position.
-                aimPoint = usePrediction
-                    ? AimPredictor.PredictInterceptPoint(firePoint.position, target.AimPosition, target.Velocity, type.projectileSpeed)
-                    : target.AimPosition;
-                AimAt(aimPoint);
+                bool pathAware = gm != null && gm.PathAwareAim;
+                if (type.ballistic)
+                {
+                    // [A+] Gravity arc: solve the launch angle to where the bug will be when the shell lands.
+                    hasSolution = AimPredictor.SolveBallisticIntercept(firePoint.position, target, type.projectileSpeed,
+                        type.highArc, pathAware && usePrediction, out launchVelocity, out aimPoint);
+                    if (!usePrediction && hasSolution) // no lead: lob at where the bug is right now
+                        hasSolution = AimPredictor.SolveBallistic(firePoint.position, target.AimPosition, type.projectileSpeed,
+                            type.highArc, out launchVelocity, out _);
+                    if (hasSolution) AimAt(firePoint.position + launchVelocity); // barrel points along the launch direction
+                }
+                else
+                {
+                    // [Req C] Aim at the enemy. [Req A] Lead it based on its velocity and position.
+                    // [A+] P toggles path-aware prediction (follows the bug around corners).
+                    if (!usePrediction) aimPoint = target.AimPosition;
+                    else if (pathAware) aimPoint = AimPredictor.PredictAlongPath(firePoint.position, target, type.projectileSpeed);
+                    else aimPoint = AimPredictor.PredictInterceptPoint(firePoint.position, target.AimPosition, target.Velocity, type.projectileSpeed);
+                    hasSolution = true;
+                    AimAt(aimPoint);
+                }
             }
 
             // [Req C] Fire continuously at a set rate while there is a target.
             cooldown -= Time.deltaTime;
-            if (cooldown <= 0f && target != null)
+            if (cooldown <= 0f && target != null && hasSolution)
             {
                 Fire();
                 cooldown = 1f / type.fireRate;
@@ -113,10 +132,20 @@ namespace BugDefense
 
         void Fire()
         {
-            Vector3 dir = (aimPoint - firePoint.position).normalized;
             var parent = GameManager.Instance != null ? GameManager.Instance.transform : null;
+            if (type.ballistic)
+            {
+                var shell = Projectile.Spawn(parent, firePoint.position, launchVelocity, type.damage,
+                                             type.projectileScale, type.color, ownColliders, true);
+                shell.splashRadius = type.splashRadius;
+                Sfx.Play(SfxId.ShootMortar, 0.9f);
+                return;
+            }
+            Vector3 dir = (aimPoint - firePoint.position).normalized;
             Projectile.Spawn(parent, firePoint.position, dir * type.projectileSpeed, type.damage,
                              type.projectileScale, type.color, ownColliders);
+            Sfx.Play(type.fireRate >= 3f ? SfxId.ShootLight : type.fireRate >= 1f ? SfxId.ShootMid : SfxId.ShootHeavy,
+                     type.fireRate >= 3f ? 0.5f : 0.8f, 0.07f);
         }
 
         void OnDrawGizmos()

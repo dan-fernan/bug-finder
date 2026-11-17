@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace BugDefense
@@ -7,6 +8,9 @@ namespace BugDefense
     {
         public float damage;
         public float lifetime = 4f;
+        /// <summary>> 0: explodes on any impact, damaging every bug within this radius (Compiler).</summary>
+        public float splashRadius;
+        Color color;
         bool spent;
 
         public static Projectile Spawn(Transform parent, Vector3 pos, Vector3 velocity, float damage,
@@ -37,6 +41,8 @@ namespace BugDefense
 
             var p = go.AddComponent<Projectile>();
             p.damage = damage;
+            p.color = color;
+            if (useGravity) p.lifetime = 6f; // high arcs stay airborne longer
             return p;
         }
 
@@ -50,9 +56,39 @@ namespace BugDefense
         {
             if (spent) return;
             spent = true;
-            var enemy = collision.collider.GetComponentInParent<Enemy>();
-            if (enemy != null) enemy.TakeDamage(damage);
+            Vector3 pos = transform.position;
+            if (splashRadius > 0f)
+            {
+                Explode(pos);
+            }
+            else
+            {
+                var enemy = collision.collider.GetComponentInParent<Enemy>();
+                if (enemy != null)
+                {
+                    enemy.TakeDamage(damage);
+                    Sfx.Play(SfxId.Hit, 0.6f, 0.06f);
+                }
+                HitFx.Burst(pos, color, enemy != null ? 5 : 3, 0.08f + transform.localScale.x * 0.25f, 3.5f);
+            }
             Destroy(gameObject);
+        }
+
+        /// <summary>[A+] Splash damage: hits every bug within the radius (horizontal distance).</summary>
+        void Explode(Vector3 pos)
+        {
+            HitFx.Ring(pos, splashRadius, color);
+            HitFx.Burst(pos, color, 10, 0.18f, 6f);
+            Sfx.Play(SfxId.Splash, 0.8f);
+            // Copy first: damage can kill bugs (and a boss split adds new ones) while we iterate.
+            var targets = new List<Enemy>(EnemyRegistry.All);
+            foreach (var e in targets)
+            {
+                if (e == null) continue;
+                Vector3 d = e.transform.position - pos;
+                d.y = 0f;
+                if (d.magnitude <= splashRadius + 0.5f * e.transform.localScale.x) e.TakeDamage(damage);
+            }
         }
     }
 }

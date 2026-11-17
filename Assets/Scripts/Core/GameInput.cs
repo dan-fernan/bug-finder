@@ -6,7 +6,7 @@ using UnityEngine.InputSystem;
 namespace BugDefense
 {
     /// <summary>Keys the game cares about, independent of which input backend is active.</summary>
-    public enum KeyCodeLite { Alpha1, Alpha2, Alpha3, Alpha4, Escape, R, Space, F, H, P }
+    public enum KeyCodeLite { Alpha1, Alpha2, Alpha3, Alpha4, Escape, R, Space, F, H, P, C, M }
 
     /// <summary>
     /// Single wrapper around all input so the game compiles and runs under either the
@@ -67,6 +67,8 @@ namespace BugDefense
                 case KeyCodeLite.F: return kb.fKey.wasPressedThisFrame;
                 case KeyCodeLite.H: return kb.hKey.wasPressedThisFrame;
                 case KeyCodeLite.P: return kb.pKey.wasPressedThisFrame;
+                case KeyCodeLite.C: return kb.cKey.wasPressedThisFrame;
+                case KeyCodeLite.M: return kb.mKey.wasPressedThisFrame;
             }
             return false;
 #else
@@ -82,9 +84,48 @@ namespace BugDefense
                 case KeyCodeLite.F: return Input.GetKeyDown(KeyCode.F);
                 case KeyCodeLite.H: return Input.GetKeyDown(KeyCode.H);
                 case KeyCodeLite.P: return Input.GetKeyDown(KeyCode.P);
+                case KeyCodeLite.C: return Input.GetKeyDown(KeyCode.C);
+                case KeyCodeLite.M: return Input.GetKeyDown(KeyCode.M);
             }
             return false;
 #endif
+        }
+            /// <summary>Camera pan from WASD / arrow keys (held). x = right, y = forward.</summary>
+        public static Vector2 PanAxis
+        {
+            get
+            {
+                Vector2 v = Vector2.zero;
+#if ENABLE_INPUT_SYSTEM
+                var kb = Keyboard.current;
+                if (kb == null) return v;
+                if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) v.x -= 1f;
+                if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) v.x += 1f;
+                if (kb.sKey.isPressed || kb.downArrowKey.isPressed) v.y -= 1f;
+                if (kb.wKey.isPressed || kb.upArrowKey.isPressed) v.y += 1f;
+#else
+                if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) v.x -= 1f;
+                if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) v.x += 1f;
+                if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) v.y -= 1f;
+                if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) v.y += 1f;
+#endif
+                return v;
+            }
+        }
+
+        /// <summary>Mouse wheel this frame, clamped to -1..1 (positive = scroll up).</summary>
+        public static float ScrollDelta
+        {
+            get
+            {
+#if ENABLE_INPUT_SYSTEM
+                if (Mouse.current == null) return 0f;
+                float y = Mouse.current.scroll.ReadValue().y;
+                return Mathf.Clamp(y, -1f, 1f); // raw units vary by platform (often 120/notch), so just clamp
+#else
+                return Mathf.Clamp(Input.mouseScrollDelta.y, -1f, 1f);
+#endif
+            }
         }
     }
 }

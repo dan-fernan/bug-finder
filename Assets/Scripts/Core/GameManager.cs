@@ -42,6 +42,12 @@ namespace BugDefense
         public int TowerCount { get; private set; }
         public int BugsSquashed { get; private set; }
 
+        /// <summary>[A+] Game speed (F toggles 1x / 2x). Applied to Time.timeScale while playing.</summary>
+        public float Speed { get; private set; } = 1f;
+        /// <summary>[A+] Path-aware prediction (follows bugs around corners) is the default; P switches to plain linear
+        /// position + velocity prediction (the base [Req A] behavior) so the difference can be demoed.</summary>
+        public bool PathAwareAim { get; private set; } = true;
+
         public GridMap Map { get; private set; }
         public ProdServer Prod { get; private set; }
         public WaveSpawner Spawner { get; private set; }
@@ -89,6 +95,8 @@ namespace BugDefense
 
             Placer = new GameObject("TowerPlacer").AddComponent<TowerPlacer>();
             Placer.transform.SetParent(transform, false);
+
+            Sfx.Create(transform);
 
             EnsureEventSystem();
             Hud = new GameObject("HUD").AddComponent<HUD>();
@@ -151,6 +159,24 @@ namespace BugDefense
         {
             // Uses unscaled input polling, so R works even while Time.timeScale == 0.
             if (GameInput.KeyDown(KeyCodeLite.R)) { Restart(); return; }
+            if (GameInput.KeyDown(KeyCodeLite.M))
+            {
+                Sfx.ToggleMute();
+                if (Hud != null) Hud.Toast(Sfx.Muted ? "Sound off (M)" : "Sound on (M)", false, 1.2f);
+            }
+
+            if (IsPlaying && GameInput.KeyDown(KeyCodeLite.F))
+            {
+                Speed = Speed > 1f ? 1f : 2f;
+                Time.timeScale = Speed;
+                if (Hud != null) Hud.Toast($"Speed: {Speed:0}x", false, 1.2f);
+            }
+            if (IsPlaying && GameInput.KeyDown(KeyCodeLite.P))
+            {
+                PathAwareAim = !PathAwareAim;
+                if (Hud != null)
+                    Hud.Toast(PathAwareAim ? "Aim: path-aware (follows corners)" : "Aim: linear (position + velocity)", false, 1.8f);
+            }
 
             switch (State)
             {
@@ -173,6 +199,7 @@ namespace BugDefense
             Spawner.StartWave(WaveIndex);
             var w = Spawner.waves[WaveIndex];
             if (Hud != null) Hud.Toast($"Wave {WaveIndex + 1}/{WaveCount}: {w.title}", WaveIndex == WaveCount - 1, 2.5f);
+            Sfx.Play(SfxId.WaveStart);
         }
 
         void WaveCleared()
@@ -184,6 +211,7 @@ namespace BugDefense
             State = GameState.Build;
             BuildTimeLeft = buildPhaseSeconds;
             if (Hud != null) Hud.Toast($"Wave {WaveIndex} cleared! +{capacityPerWave} capacity", false, 2.5f);
+            Sfx.Play(SfxId.Place);
         }
 
         void Victory()
@@ -192,6 +220,7 @@ namespace BugDefense
             Spawner.Stop();
             Time.timeScale = 0f;
             if (Hud != null) Hud.ShowVictory();
+            Sfx.Play(SfxId.Victory);
         }
 
         public void RegisterBugSquashed() => BugsSquashed++;
@@ -226,6 +255,7 @@ namespace BugDefense
             if (Spawner != null) Spawner.Stop();
             Time.timeScale = 0f;
             if (Prod != null) Prod.SetAlarm(true);
+            Sfx.Play(SfxId.GameOver);
             if (Hud != null) Hud.ShowGameOver(culprit != null ? culprit.DisplayName : "A bug");
         }
 

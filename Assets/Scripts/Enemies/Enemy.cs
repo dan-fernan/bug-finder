@@ -38,6 +38,9 @@ namespace BugDefense
 
         Rigidbody rb;
         Transform visual;
+        MeshRenderer[] bodyRenderers;
+        Material[] bodyMaterials;
+        float flashTimer;
         float scale, age, jitterTimer, currentSpeed, bobPhase;
         bool dead;
 
@@ -68,6 +71,9 @@ namespace BugDefense
             e.rb.interpolation = RigidbodyInterpolation.Interpolate;
 
             e.BuildVisual();
+            e.bodyRenderers = e.visual.GetComponentsInChildren<MeshRenderer>();
+            e.bodyMaterials = new Material[e.bodyRenderers.Length];
+            for (int i = 0; i < e.bodyRenderers.Length; i++) e.bodyMaterials[i] = e.bodyRenderers[i].sharedMaterial;
             HealthBar.Create(e);
 
             // Face along the current segment immediately.
@@ -184,9 +190,35 @@ namespace BugDefense
         }
         float jitterFactor = 1f;
 
+        /// <summary>
+        /// [A+] Where this bug will be in <paramref name="t"/> seconds if it keeps walking its path at its current speed.
+        /// Unlike pos + velocity * t, this turns the corners. Used by path-aware aiming (P).
+        /// </summary>
+        public Vector3 PredictPosition(float t)
+        {
+            var wp = PathDefinition.WorldWaypoints;
+            Vector3 pos = transform.position;
+            float y = pos.y;
+            float remaining = currentSpeed * Mathf.Max(0f, t);
+            for (int i = waypointIndex; i < wp.Length && remaining > 0f; i++)
+            {
+                Vector3 target = new Vector3(wp[i].x, y, wp[i].z);
+                float d = Vector3.Distance(pos, target);
+                if (d >= remaining) return pos + (target - pos) / d * remaining;
+                pos = target;
+                remaining -= d;
+            }
+            return pos;
+        }
+
         void Update()
         {
             if (visual == null) return;
+            if (flashTimer > 0f)
+            {
+                flashTimer -= Time.deltaTime;
+                if (flashTimer <= 0f) SetFlash(false);
+            }
             bobPhase += Time.deltaTime * currentSpeed * 4f / Mathf.Max(0.5f, scale);
             visual.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(bobPhase)) * 0.08f, 0f);
         }
@@ -195,7 +227,18 @@ namespace BugDefense
         {
             if (dead) return;
             hp -= dmg;
-            if (hp <= 0f) Die();
+            if (hp <= 0f) { Die(); return; }
+            // [A+] Brief white flash so hits read clearly.
+            if (flashTimer <= 0f) SetFlash(true);
+            flashTimer = 0.06f;
+        }
+
+        void SetFlash(bool on)
+        {
+            if (bodyRenderers == null) return;
+            var white = MaterialFactory.Unlit(Color.white);
+            for (int i = 0; i < bodyRenderers.Length; i++)
+                if (bodyRenderers[i] != null) bodyRenderers[i].sharedMaterial = on ? white : bodyMaterials[i];
         }
 
         void Die()
@@ -205,6 +248,13 @@ namespace BugDefense
             EnemyRegistry.Unregister(this);
             var gm = GameManager.Instance;
             if (gm != null) gm.RegisterBugSquashed();
+
+            // [A+] Death FX: burst in the bug's color + floating "fixed!" text.
+            Vector3 p0 = transform.position;
+            HitFx.Burst(p0, type.color, 8 + Mathf.RoundToInt(scale * 6f), 0.12f + scale * 0.1f, 4f + scale);
+            FloatingText.Spawn(type.splitCount > 0 ? "OUTAGE RESOLVED!" : "fixed!", p0 + Vector3.up * (0.6f + scale * 0.5f),
+                               new Color32(0x1F, 0xD1, 0x7A, 0xFF), type.splitCount > 0 ? 0.14f : 0.08f);
+            Sfx.Play(SfxId.Death, 0.7f, 0.04f);
 
             // Boss: splits into smaller bugs that continue from the boss's spot on the path.
             if (type.splitCount > 0 && type.splitInto != null)

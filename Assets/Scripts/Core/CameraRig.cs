@@ -5,6 +5,7 @@ namespace BugDefense
     /// <summary>
     /// Fixed tilted camera that fits the whole board (plus spawn pad and PROD rack) into the part of the
     /// screen not covered by HUD panels, for any aspect ratio. Re-frames when the window is resized.
+    /// [A+] WASD / arrows pan and the mouse wheel zooms, both clamped; C resets. Uses unscaled time so it works while paused.
     /// </summary>
     public class CameraRig : MonoBehaviour
     {
@@ -12,14 +13,34 @@ namespace BugDefense
         /// <summary>Viewport area (0..1) the board must fit inside: leaves room for the tower bar and top panels.</summary>
         public Rect safeArea = new Rect(0.02f, 0.135f, 0.96f, 0.64f);
 
+        [Header("Pan / zoom")]
+        public float panSpeed = 18f;
+        public float minZoom = 0.45f, maxZoom = 1.2f;
+        public Vector2 panLimit = new Vector2(14f, 10f);
+
         Camera cam;
         float lastAspect;
+        Vector3 baseLook;   // look-at point of the fitted framing
+        float baseDist;     // camera distance of the fitted framing
+        Vector2 pan;
+        float zoom = 1f;
 
         void Awake() { cam = GetComponent<Camera>(); }
 
         void LateUpdate()
         {
             if (cam != null && !Mathf.Approximately(cam.aspect, lastAspect)) Frame();
+            if (baseDist <= 0f) return;
+
+            if (GameInput.KeyDown(KeyCodeLite.C)) { pan = Vector2.zero; zoom = 1f; }
+            float dt = Time.unscaledDeltaTime;
+            pan += GameInput.PanAxis * panSpeed * zoom * dt;
+            pan.x = Mathf.Clamp(pan.x, -panLimit.x, panLimit.x);
+            pan.y = Mathf.Clamp(pan.y, -panLimit.y, panLimit.y);
+            float scroll = GameInput.ScrollDelta;
+            if (scroll != 0f) zoom = Mathf.Clamp(zoom * (1f - scroll * 0.08f), minZoom, maxZoom);
+
+            transform.position = baseLook + new Vector3(pan.x, 0f, pan.y) - transform.forward * baseDist * zoom;
         }
 
         Vector3[] ContentPoints()
@@ -70,6 +91,8 @@ namespace BugDefense
                 offsetZ += midErr * dist * 0.8f; // moving the look-at point forward pushes content down
                 if (Mathf.Abs(scale - 1f) < 0.002f && Mathf.Abs(midErr) < 0.002f) break;
             }
+            baseLook = center + new Vector3(0f, 0f, offsetZ);
+            baseDist = dist;
         }
     }
 }

@@ -17,6 +17,11 @@ namespace BugDefense
         public float range;             // horizontal range from the tower center
         public Color color;
 
+        [Header("Ballistic (Compiler)")]
+        public bool ballistic;          // gravity projectile on an arc instead of a straight shot
+        public bool highArc = true;     // mortar-style lob
+        public float splashRadius;      // > 0: damages every bug within this radius of the impact
+
         [Header("Visuals")]
         public Vector3 projectileScale = Vector3.one * 0.2f;
         public float columnWidth = 1.1f;

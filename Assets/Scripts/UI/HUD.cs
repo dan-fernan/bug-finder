@@ -40,7 +40,7 @@ namespace BugDefense
             var root = canvas.transform;
 
             // Top-left status panel.
-            var statusPanel = UIFactory.Panel("Status", root, new Vector2(0, 1), new Vector2(20, -20), new Vector2(420, 196), PanelBg);
+            var statusPanel = UIFactory.Panel("Status", root, new Vector2(0, 1), new Vector2(20, -20), new Vector2(420, 222), PanelBg);
             status = UIFactory.Label("StatusText", statusPanel.transform, "", 23, TextColor, TextAnchor.UpperLeft);
 
             // Top-center build-phase banner ("Wave 2/6 starts in 7s - press SPACE").
@@ -50,16 +50,17 @@ namespace BugDefense
             bannerText.rectTransform.offsetMin = new Vector2(8, 4); bannerText.rectTransform.offsetMax = new Vector2(-8, -4);
 
             // Top-right instructions panel: [Req B] clear explanation of how to place towers. Always visible (H hides).
-            var help = UIFactory.Panel("Help", root, new Vector2(1, 1), new Vector2(-20, -20), new Vector2(600, 214), PanelBg);
+            var help = UIFactory.Panel("Help", root, new Vector2(1, 1), new Vector2(-20, -20), new Vector2(600, 236), PanelBg);
             helpPanel = help.gameObject;
             UIFactory.Label("HelpText", help.transform,
                 "<b><color=#1FD17A>HOW TO DEPLOY TOOLS</color></b>\n" +
-                "1. Press <b>1-3</b> (or click a button below) to pick a tower\n" +
+                "1. Press <b>1-4</b> (or click a button below) to pick a tower\n" +
                 "2. Move the mouse over a <b>dark tile</b> (not the green path)\n" +
                 "3. <b>Left-click</b> to place. <b>Right-click / Esc</b> to cancel\n" +
                 "Each tower costs sprint capacity; +2 per cleared wave.\n" +
                 "Max 14 towers. Right-click a tower to remove it.\n" +
-                "<color=#94A3B8>SPACE: start wave now   H: hide help   R: restart</color>\n" +
+                "<color=#94A3B8>SPACE: start wave   F: 2x speed   P: aim mode   H: help</color>\n" +
+                "<color=#94A3B8>WASD/wheel: camera   C: reset   M: mute   R: restart</color>\n" +
                 "<color=#F87171>Don't let a single bug reach PROD!</color>",
                 19, TextColor, TextAnchor.UpperLeft);
 
@@ -96,7 +97,7 @@ namespace BugDefense
 
         void BuildTowerBar(Transform root)
         {
-            const float w = 430f, h = 110f, gap = 16f;
+            const float w = 440f, h = 110f, gap = 14f;
             var types = TowerCatalog.All;
             float total = types.Length * w + (types.Length - 1) * gap;
             for (int i = 0; i < types.Length; i++)
@@ -147,7 +148,9 @@ namespace BugDefense
                 bugs + "\n" +
                 $"Capacity: <color={capColor}>{gm.CapacityAvailable} / {gm.CapacityTotal} pts</color>\n" +
                 $"Towers: <color={towerColor}>{gm.TowerCount} / {gm.maxTowers}</color>\n" +
-                $"Bugs squashed: <color=#1FD17A>{gm.BugsSquashed}</color>";
+                $"Bugs squashed: <color=#1FD17A>{gm.BugsSquashed}</color>\n" +
+                $"Speed: <color={(gm.Speed > 1f ? "#FACC15" : "#E2E8F0")}>{gm.Speed:0}x</color>   " +
+                $"Aim: <color=#A78BFA>{(gm.PathAwareAim ? "path-aware" : "linear")}</color>";
 
             bool building = gm.State == GameState.Build;
             if (bannerPanel.activeSelf != building) bannerPanel.SetActive(building);

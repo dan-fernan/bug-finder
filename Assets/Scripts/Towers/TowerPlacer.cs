@@ -93,8 +93,9 @@ namespace BugDefense
 
             if (GameInput.LeftClickDown && !overUI)
             {
-                if (error != null) { if (hud != null) hud.Toast(error, true); return; }
+                if (error != null) { if (hud != null) hud.Toast(error, true); Sfx.Play(SfxId.Error); return; }
                 Place(tile, Selected);
+                Sfx.Play(SfxId.Place, 0.8f);
             }
         }
 

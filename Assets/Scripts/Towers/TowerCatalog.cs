@@ -35,7 +35,18 @@ namespace BugDefense
             columnWidth = 0.8f, headSize = 0.9f, barrelLength = 1.3f, barrelWidth = 0.28f,
         };
 
-        public static readonly TowerType[] All = { Linter, UnitTest, Debugger };
+        /// <summary>[A+] Ballistic mortar: gravity-affected shell on a high arc, splash damage on impact.</summary>
+        public static readonly TowerType Compiler = new TowerType
+        {
+            name = "Compiler", flavor = "Lobs builds. Splash: errors everywhere.", hotkey = 4,
+            cost = 3, fireRate = 0.4f, projectileSpeed = 16f, height = 1.5f, damage = 30f, range = 12f,
+            color = new Color32(0xA7, 0x8B, 0xFA, 0xFF),
+            projectileScale = Vector3.one * 0.45f,
+            columnWidth = 1.35f, headSize = 0.95f, barrelLength = 0.55f, barrelWidth = 0.5f,
+            ballistic = true, highArc = true, splashRadius = 2.5f,
+        };
+
+        public static readonly TowerType[] All = { Linter, UnitTest, Debugger, Compiler };
 
         public static TowerType ByHotkey(int key)
         {
