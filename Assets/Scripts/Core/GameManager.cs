@@ -64,11 +64,14 @@ namespace BugDefense
             // Reset static state on every boot / restart.
             Time.timeScale = 1f;
             EnemyRegistry.Clear();
+            startingCapacity = PathDefinition.Level.startingCapacity;
             CapacityTotal = startingCapacity;
 
             BuildScene();
 
-            State = GameState.Build;
+            // Fresh Play: show the level select first. Restart / next level skip straight to the build phase.
+            State = LevelCatalog.LevelChosen ? GameState.Build : GameState.Menu;
+            if (Hud != null) Hud.ShowLevelSelect(State == GameState.Menu);
             WaveIndex = 0;
             BuildTimeLeft = firstBuildPhaseSeconds;
         }
@@ -88,7 +91,10 @@ namespace BugDefense
             Map.Build();
             Scenery.Create(transform);
 
-            SpawnPortal.Create(transform);
+            // One "git push" pad per spawn (the hardest level has two teams pushing).
+            int si = 0;
+            foreach (var cell in PathDefinition.SpawnCells)
+                SpawnPortal.Create(transform, cell, si++ == 0 ? "git push" : "git push -f");
             Prod = ProdServer.Create(transform);
 
             Spawner = new GameObject("WaveSpawner").AddComponent<WaveSpawner>();
@@ -181,6 +187,18 @@ namespace BugDefense
 
             switch (State)
             {
+                case GameState.Menu:
+                    for (int i = 0; i < LevelCatalog.All.Length && i < 3; i++)
+                        if (GameInput.KeyDown(KeyCodeLite.Alpha1 + i)) { PlayLevel(i); return; }
+                    break;
+
+                case GameState.GameOver:
+                case GameState.Victory:
+                    if (GameInput.KeyDown(KeyCodeLite.L)) { LevelCatalog.BackToMenu(); Restart(); return; }
+                    if (State == GameState.Victory && LevelCatalog.HasNext && GameInput.KeyDown(KeyCodeLite.N))
+                    { PlayLevel(LevelCatalog.CurrentIndex + 1); return; }
+                    break;
+
                 case GameState.Build:
                     BuildTimeLeft -= Time.deltaTime;
                     if (BuildTimeLeft <= 0f || GameInput.KeyDown(KeyCodeLite.Space)) StartWave();
@@ -258,6 +276,13 @@ namespace BugDefense
             if (Prod != null) Prod.SetAlarm(true);
             Sfx.Play(SfxId.GameOver);
             if (Hud != null) Hud.ShowGameOver(culprit != null ? culprit.DisplayName : "A bug");
+        }
+
+        /// <summary>Loads the given level (reloads the scene; the bootstrap rebuilds everything for it).</summary>
+        public void PlayLevel(int index)
+        {
+            LevelCatalog.Choose(index);
+            Restart();
         }
 
         public void Restart()

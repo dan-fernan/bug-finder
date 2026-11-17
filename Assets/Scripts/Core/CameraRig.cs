@@ -11,7 +11,7 @@ namespace BugDefense
     {
         public float pitch = 52f;
         /// <summary>Viewport area (0..1) the board must fit inside: leaves room for the tower bar and top panels.</summary>
-        public Rect safeArea = new Rect(0.02f, 0.135f, 0.96f, 0.64f);
+        public Rect safeArea = new Rect(0.02f, 0.13f, 0.96f, 0.6f);
 
         [Header("Pan / zoom")]
         public float panSpeed = 18f;
@@ -49,14 +49,15 @@ namespace BugDefense
             float minX = -2f * ts, maxX = (GridMap.Cols + 1) * ts; // spawn pad (x=-1) .. PROD (x=18)
             float maxZ = GridMap.Rows * ts;
             var prod = GridMap.GridToWorld(PathDefinition.ProdCell);
-            var spawn = GridMap.GridToWorld(PathDefinition.SpawnCell);
-            return new[]
+            var pts = new System.Collections.Generic.List<Vector3>
             {
                 new Vector3(minX + ts, 0f, 0f), new Vector3(maxX - ts, 0f, 0f),
                 new Vector3(minX + ts, 0f, maxZ), new Vector3(maxX - ts, 0f, maxZ),
                 prod + new Vector3(-1f, 5.6f, 1f), prod + new Vector3(1f, 5.6f, -1f), // rack top + label
-                spawn + new Vector3(-1.2f, 1.8f, 0f), // "git push" label
             };
+            foreach (var c in PathDefinition.SpawnCells)
+                pts.Add(GridMap.GridToWorld(c) + new Vector3(-1.2f, 1.8f, 0f)); // "git push" labels
+            return pts.ToArray();
         }
 
         public void Frame()

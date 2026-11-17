@@ -1,8 +1,12 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace BugDefense
 {
-    /// <summary>Builds the 18x12 tile board. Path tiles glow green, buildable tiles are dark slate.</summary>
+    /// <summary>
+    /// Builds the 18x12 tile board for the current level. Path tiles are a dark green "bus" with a glowing
+    /// circuit trace down the middle (forks and merges included); buildable tiles are dark slate.
+    /// </summary>
     public class GridMap : MonoBehaviour
     {
         public const int Cols = 18, Rows = 12;
@@ -10,6 +14,7 @@ namespace BugDefense
 
         public static readonly Color SlateColor = new Color32(0x1A, 0x22, 0x33, 0xFF);
         public static readonly Color PathColor = new Color32(0x1F, 0xD1, 0x7A, 0xFF);
+        public static readonly Color PathTileColor = new Color32(0x0E, 0x3B, 0x2C, 0xFF);
 
         BuildTile[,] tiles;
 
@@ -26,7 +31,8 @@ namespace BugDefense
             var pathCells = PathDefinition.PathCells();
             var slate = MaterialFactory.Lit(SlateColor, 0f, 0.15f);
             var slateEdge = MaterialFactory.Lit(new Color32(0x2A, 0x36, 0x4F, 0xFF), 0f, 0.1f);
-            var path = MaterialFactory.Lit(PathColor, 0.6f, 0.5f);
+            var path = MaterialFactory.Lit(PathTileColor, 0.35f, 0.6f);
+            var trace = MaterialFactory.Lit(PathColor, 2.2f);
 
             // Underlay slightly larger than the board: the thin gaps between tiles read as a grid border.
             ShapeFactory.Prim(PrimitiveType.Cube, transform,
@@ -57,25 +63,56 @@ namespace BugDefense
                 tiles[x, z] = tile;
             }
 
-            // Short glowing stubs connecting the spawn pad and PROD to the board.
-            var wp = PathDefinition.WorldWaypoints;
-            AddConnector(wp[0], wp[1], path);
-            AddConnector(wp[wp.Length - 2], wp[wp.Length - 1], path);
+            // Circuit traces along every edge, pads on every node, and stubs to the off-board spawn pads / PROD.
+            var level = PathDefinition.Level;
+            foreach (var (a, b) in level.EdgeCells)
+            {
+                Vector3 wa = GridToWorld(a), wb = GridToWorld(b);
+                if (!OnBoard(a) || !OnBoard(b)) AddConnector(wa, wb, path);
+                AddTrace(wa, wb, trace);
+            }
+            var nodeSet = new HashSet<Vector2Int>();
+            foreach (var (a, b) in level.EdgeCells) { nodeSet.Add(a); nodeSet.Add(b); }
+            foreach (var n in nodeSet)
+                ShapeFactory.Prim(PrimitiveType.Cube, transform, GridToWorld(n, 0.03f), new Vector3(0.55f, 0.06f, 0.55f), trace, false, "TracePad");
+
+            // Forks get a small "if" marker so the branching reads as code.
+            foreach (var f in level.ForkCells())
+                if (OnBoard(f))
+                {
+                    var lbl = WorldLabel.Create("if", transform, GridToWorld(f, 1.1f), new Color(0.75f, 1f, 0.85f), 0.11f);
+                    lbl.name = "ForkLabel";
+                }
+
+            gameObject.AddComponent<PathFlow>().Init(level, trace);
+        }
+
+        static bool OnBoard(Vector2Int c) => c.x >= 0 && c.y >= 0 && c.x < Cols && c.y < Rows;
+
+        void AddTrace(Vector3 a, Vector3 b, Material mat)
+        {
+            var mid = (a + b) * 0.5f + Vector3.up * 0.02f;
+            var d = b - a;
+            var size = Mathf.Abs(d.x) > Mathf.Abs(d.z) ? new Vector3(Mathf.Abs(d.x), 0.04f, 0.16f) : new Vector3(0.16f, 0.04f, Mathf.Abs(d.z));
+            ShapeFactory.Prim(PrimitiveType.Cube, transform, mid, size, mat, false, "Trace");
         }
 
         void AddConnector(Vector3 a, Vector3 b, Material mat)
         {
             var mid = (a + b) * 0.5f + Vector3.down * 0.1f;
-            float len = Vector3.Distance(a, b);
-            ShapeFactory.Prim(PrimitiveType.Cube, transform, mid, new Vector3(len, 0.2f, TileSize - 0.12f), mat, false, "PathConnector");
+            var d = b - a;
+            var size = Mathf.Abs(d.x) > Mathf.Abs(d.z)
+                ? new Vector3(Mathf.Abs(d.x), 0.2f, TileSize - 0.12f)
+                : new Vector3(TileSize - 0.12f, 0.2f, Mathf.Abs(d.z));
+            ShapeFactory.Prim(PrimitiveType.Cube, transform, mid, size, mat, false, "PathConnector");
         }
 
         void OnDrawGizmos()
         {
-            var wp = PathDefinition.WorldWaypoints;
             Gizmos.color = Color.green;
-            for (int i = 0; i < wp.Length - 1; i++)
-                Gizmos.DrawLine(wp[i] + Vector3.up * 0.5f, wp[i + 1] + Vector3.up * 0.5f);
+            foreach (var r in PathDefinition.Routes)
+                for (int i = 0; i < r.points.Length - 1; i++)
+                    Gizmos.DrawLine(r.points[i] + Vector3.up * 0.5f, r.points[i + 1] + Vector3.up * 0.5f);
         }
     }
 }

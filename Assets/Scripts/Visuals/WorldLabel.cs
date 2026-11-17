@@ -13,7 +13,7 @@ namespace BugDefense
 
             var tm = go.AddComponent<TextMesh>();
             tm.text = text;
-            tm.font = UIFactory.DefaultFont;
+            tm.font = UIFactory.CodeFont;
             tm.fontSize = 64;
             tm.characterSize = size;
             tm.anchor = TextAnchor.MiddleCenter;

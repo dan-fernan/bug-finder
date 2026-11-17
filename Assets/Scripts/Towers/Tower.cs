@@ -105,14 +105,14 @@ namespace BugDefense
         Enemy FindTarget()
         {
             Enemy best = null;
-            float bestProgress = float.MinValue;
+            float bestRemaining = float.MaxValue;
             var all = EnemyRegistry.All;
             for (int i = 0; i < all.Count; i++)
             {
                 var e = all[i];
                 if (e == null || !InRange(e)) continue;
-                float p = e.PathProgress;
-                if (p > bestProgress) { bestProgress = p; best = e; }
+                float r = e.RemainingDistance; // works across branches: whoever is closest to PROD
+                if (r < bestRemaining) { bestRemaining = r; best = e; }
             }
             return best;
         }

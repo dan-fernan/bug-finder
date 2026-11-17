@@ -23,17 +23,17 @@ namespace BugDefense
         /// <summary>Point towers should aim at (center of the body collider).</summary>
         public Vector3 AimPosition => transform.position;
 
-        /// <summary>How far along the path this bug is (waypoint index + fraction). Higher = closer to PROD.</summary>
-        public float PathProgress
+        /// <summary>The branch-specific route this bug is walking (chosen at spawn).</summary>
+        public PathRoute Route { get; private set; }
+
+        /// <summary>Path distance left to PROD. Lower = more dangerous. Comparable across branches.</summary>
+        public float RemainingDistance
         {
             get
             {
-                var wp = PathDefinition.WorldWaypoints;
-                if (waypointIndex <= 0 || waypointIndex >= wp.Length) return waypointIndex;
-                Vector3 a = wp[waypointIndex - 1], b = wp[waypointIndex];
-                float seg = Vector3.Distance(a, b);
-                float remaining = Vector3.Distance(Flat(transform.position), Flat(b));
-                return waypointIndex - (seg > 0.001f ? Mathf.Clamp01(remaining / seg) : 0f);
+                var wp = Route.points;
+                if (waypointIndex >= wp.Length) return 0f;
+                return Vector3.Distance(Flat(transform.position), Flat(wp[waypointIndex])) + Route.remainingAfter[waypointIndex];
             }
         }
 
@@ -49,14 +49,15 @@ namespace BugDefense
         static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z);
         float YOffset => 0.42f * scale; // keeps the legs on the ground at any size
 
-        /// <summary>Spawns an enemy standing at <paramref name="groundPos"/>, heading to waypoint <paramref name="waypointIndex"/>.</summary>
-        public static Enemy Spawn(Transform parent, EnemyType type, Vector3 groundPos, int waypointIndex, float hpMultiplier = 1f)
+        /// <summary>Spawns an enemy standing at <paramref name="groundPos"/>, heading to waypoint <paramref name="waypointIndex"/> of <paramref name="route"/>.</summary>
+        public static Enemy Spawn(Transform parent, EnemyType type, PathRoute route, Vector3 groundPos, int waypointIndex, float hpMultiplier = 1f)
         {
             var go = new GameObject("Bug_" + type.name);
             go.transform.SetParent(parent, false);
 
             var e = go.AddComponent<Enemy>();
             e.type = type;
+            e.Route = route;
             e.hpMultiplier = hpMultiplier;
             e.maxHp = e.hp = type.hp * hpMultiplier;
             e.speed = e.currentSpeed = type.speed;
@@ -80,7 +81,7 @@ namespace BugDefense
             HealthBar.Create(e);
 
             // Face along the current segment immediately.
-            var wp = PathDefinition.WorldWaypoints;
+            var wp = route.points;
             if (waypointIndex < wp.Length)
             {
                 var d = Flat(wp[waypointIndex] - groundPos);
@@ -108,7 +109,7 @@ namespace BugDefense
             float dt = Time.fixedDeltaTime;
             UpdateSpecials(dt);
 
-            var wp = PathDefinition.WorldWaypoints;
+            var wp = Route.points;
             Vector3 pos = rb.position;
             pos.y = YOffset;
             float step = currentSpeed * dt;
@@ -171,7 +172,7 @@ namespace BugDefense
         /// </summary>
         public Vector3 PredictPosition(float t)
         {
-            var wp = PathDefinition.WorldWaypoints;
+            var wp = Route.points;
             Vector3 pos = transform.position;
             float y = pos.y;
             float remaining = currentSpeed * Mathf.Max(0f, t);
@@ -239,7 +240,7 @@ namespace BugDefense
                 {
                     // Stagger them slightly behind the boss so they don't overlap.
                     Vector3 p = Flat(transform.position) + back * (i * 0.45f);
-                    Enemy.Spawn(transform.parent, type.splitInto, p, waypointIndex, hpMultiplier);
+                    Enemy.Spawn(transform.parent, type.splitInto, Route, p, waypointIndex, hpMultiplier);
                 }
                 if (gm != null && gm.Hud != null) gm.Hud.Toast("The outage split into Syntax Errors!", true);
             }

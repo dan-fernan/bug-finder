@@ -7,11 +7,11 @@ namespace BugDefense
     {
         Transform ring;
 
-        public static SpawnPortal Create(Transform parent)
+        public static SpawnPortal Create(Transform parent, Vector2Int cell, string label = "git push")
         {
             var go = new GameObject("SpawnPortal");
             go.transform.SetParent(parent, false);
-            go.transform.position = GridMap.GridToWorld(PathDefinition.SpawnCell);
+            go.transform.position = GridMap.GridToWorld(cell);
 
             var orange = MaterialFactory.Hex("#F97316");
             ShapeFactory.Prim(PrimitiveType.Cylinder, go.transform, new Vector3(0f, 0.05f, 0f),
@@ -19,7 +19,7 @@ namespace BugDefense
             var ring = ShapeFactory.Prim(PrimitiveType.Cylinder, go.transform, new Vector3(0f, 0.12f, 0f),
                 new Vector3(1.3f, 0.04f, 1.3f), MaterialFactory.Lit(orange, 1.5f), false, "Glow");
 
-            WorldLabel.Create("git push", go.transform, new Vector3(0f, 1.6f, 0f), orange, 0.09f);
+            WorldLabel.Create(label, go.transform, new Vector3(0f, 1.6f, 0f), orange, 0.09f);
 
             var portal = go.AddComponent<SpawnPortal>();
             portal.ring = ring.transform;

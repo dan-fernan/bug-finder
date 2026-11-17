@@ -6,7 +6,7 @@ using UnityEngine.InputSystem;
 namespace BugDefense
 {
     /// <summary>Keys the game cares about, independent of which input backend is active.</summary>
-    public enum KeyCodeLite { Alpha1, Alpha2, Alpha3, Alpha4, Escape, R, Space, F, H, P, C, M }
+    public enum KeyCodeLite { Alpha1, Alpha2, Alpha3, Alpha4, Escape, R, Space, F, H, P, C, M, N, L }
 
     /// <summary>
     /// Single wrapper around all input so the game compiles and runs under either the
@@ -69,6 +69,8 @@ namespace BugDefense
                 case KeyCodeLite.P: return kb.pKey.wasPressedThisFrame;
                 case KeyCodeLite.C: return kb.cKey.wasPressedThisFrame;
                 case KeyCodeLite.M: return kb.mKey.wasPressedThisFrame;
+                case KeyCodeLite.N: return kb.nKey.wasPressedThisFrame;
+                case KeyCodeLite.L: return kb.lKey.wasPressedThisFrame;
             }
             return false;
 #else
@@ -86,6 +88,8 @@ namespace BugDefense
                 case KeyCodeLite.P: return Input.GetKeyDown(KeyCode.P);
                 case KeyCodeLite.C: return Input.GetKeyDown(KeyCode.C);
                 case KeyCodeLite.M: return Input.GetKeyDown(KeyCode.M);
+                case KeyCodeLite.N: return Input.GetKeyDown(KeyCode.N);
+                case KeyCodeLite.L: return Input.GetKeyDown(KeyCode.L);
             }
             return false;
 #endif

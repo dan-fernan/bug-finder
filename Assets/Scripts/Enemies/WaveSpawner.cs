@@ -18,6 +18,7 @@ namespace BugDefense
         WaveDefinition current;
         float elapsed;
         int[] spawnedPerGroup;
+        int nextSpawn;
 
         public void StartWave(int index)
         {
@@ -37,7 +38,6 @@ namespace BugDefense
             if (gm == null || gm.State != GameState.Wave) return;
 
             elapsed += Time.deltaTime;
-            var spawnPos = PathDefinition.WorldWaypoints[0];
             for (int g = 0; g < current.groups.Count; g++)
             {
                 var group = current.groups[g];
@@ -47,7 +47,10 @@ namespace BugDefense
                 {
                     // The boss already has hand-tuned HP; the ramp applies to regular bugs only.
                     float mult = group.type.splitCount > 0 ? 1f : current.hpMultiplier;
-                    Enemy.Spawn(transform, group.type, spawnPos, 1, mult);
+                    // Multiple spawns take turns; each bug picks a random branch from its spawn.
+                    var route = PathDefinition.RandomRoute(nextSpawn);
+                    nextSpawn = (nextSpawn + 1) % Mathf.Max(1, PathDefinition.Level.SpawnIds.Count);
+                    Enemy.Spawn(transform, group.type, route, route.points[0], 1, mult * PathDefinition.Level.hpScale);
                     spawnedPerGroup[g]++;
                     PendingCount--;
                 }
