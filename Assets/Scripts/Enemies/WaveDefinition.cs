@@ -24,11 +24,14 @@ namespace BugDefense
         }
 
         public string title;
+        /// <summary>Difficulty ramp: every bug in this wave spawns with base HP times this.</summary>
+        public float hpMultiplier = 1f;
         public List<SpawnGroup> groups = new List<SpawnGroup>();
 
-        public WaveDefinition(string title, params SpawnGroup[] groups)
+        public WaveDefinition(string title, float hpMultiplier, params SpawnGroup[] groups)
         {
             this.title = title;
+            this.hpMultiplier = hpMultiplier;
             this.groups.AddRange(groups);
         }
 
@@ -49,18 +52,18 @@ namespace BugDefense
             var boss = EnemyCatalog.ProductionOutage;
             return new List<WaveDefinition>
             {
-                new WaveDefinition("Typos",
-                    G(se, 8, 1.0f)),
-                new WaveDefinition("It compiles, but...",
-                    G(se, 6, 0.8f), G(logic, 4, 1.5f, 5.5f)),
-                new WaveDefinition("Works on my machine",
-                    G(logic, 8, 1.2f), G(race, 6, 0.6f, 10.5f)),
-                new WaveDefinition("Heap of trouble",
-                    G(leak, 3, 3f), G(se, 10, 0.5f, 8f)),
-                new WaveDefinition("Friday deploy",
-                    G(logic, 6, 2f), G(race, 4, 3f, 1f), G(leak, 3, 4f, 2f)),
-                new WaveDefinition("PRODUCTION OUTAGE",
-                    G(boss, 1, 1f), G(race, 8, 1.0f, 5f)),
+                new WaveDefinition("Typos", 1.0f,
+                    G(se, 12, 0.8f)),
+                new WaveDefinition("It compiles, but...", 1.1f,
+                    G(se, 10, 0.6f), G(logic, 7, 1.1f, 4f)),
+                new WaveDefinition("Works on my machine", 1.25f,
+                    G(logic, 10, 0.9f), G(race, 12, 0.4f, 7f)),
+                new WaveDefinition("Heap of trouble", 1.3f,
+                    G(leak, 4, 2.5f), G(se, 18, 0.35f, 5f), G(race, 8, 0.45f, 11f)),
+                new WaveDefinition("Friday deploy", 1.6f,
+                    G(logic, 12, 1.1f), G(race, 12, 0.9f, 1f), G(leak, 6, 2.5f, 2f)),
+                new WaveDefinition("PRODUCTION OUTAGE", 1.6f,
+                    G(boss, 1, 1f), G(leak, 3, 3.5f, 3f), G(race, 16, 0.6f, 5f), G(logic, 10, 1.0f, 10f)),
             };
         }
     }

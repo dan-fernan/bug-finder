@@ -12,6 +12,7 @@ namespace BugDefense
         public float scale = 1f;
         public Color color;
         public float emission = 0.35f;
+        public BugStyle style = BugStyle.Beetle; // body plan used by BugModel
 
         [Header("Specials")]
         public float growToScale;       // Memory Leak: grows to this scale over growDuration (0 = no growth)

@@ -14,27 +14,27 @@ namespace BugDefense
         public static readonly EnemyType LogicBug = new EnemyType
         {
             name = "Logic Bug", hp = 60f, speed = 2.6f, scale = 0.9f,
-            color = new Color32(0xF9, 0x73, 0x16, 0xFF),
+            color = new Color32(0xF9, 0x73, 0x16, 0xFF), style = BugStyle.Ladybug,
         };
 
         public static readonly EnemyType MemoryLeak = new EnemyType
         {
             name = "Memory Leak", hp = 220f, speed = 1.3f, scale = 1.0f,
-            color = new Color32(0xA8, 0x55, 0xF7, 0xFF),
+            color = new Color32(0xA8, 0x55, 0xF7, 0xFF), style = BugStyle.Blob,
             growToScale = 1.6f, growDuration = 25f, hpPerSecond = 2f,
         };
 
         public static readonly EnemyType RaceCondition = new EnemyType
         {
             name = "Race Condition", hp = 12f, speed = 7.5f, scale = 0.5f,
-            color = new Color32(0xEA, 0xB3, 0x08, 0xFF),
+            color = new Color32(0xEA, 0xB3, 0x08, 0xFF), style = BugStyle.Skitter,
             speedJitter = 0.15f,
         };
 
         public static readonly EnemyType ProductionOutage = new EnemyType
         {
             name = "Production Outage", hp = 1500f, speed = 0.9f, scale = 2.2f,
-            color = new Color32(0x7F, 0x0D, 0x16, 0xFF), emission = 0.5f,
+            color = new Color32(0x7F, 0x0D, 0x16, 0xFF), emission = 0.5f, style = BugStyle.Boss,
             splitCount = 6, splitInto = SyntaxError,
         };
 

@@ -57,7 +57,7 @@ namespace BugDefense
                 "1. Press <b>1-4</b> (or click a button below) to pick a tower\n" +
                 "2. Move the mouse over a <b>dark tile</b> (not the green path)\n" +
                 "3. <b>Left-click</b> to place. <b>Right-click / Esc</b> to cancel\n" +
-                "Each tower costs sprint capacity; +2 per cleared wave.\n" +
+                "Each tower costs sprint capacity; +3 per cleared wave.\n" +
                 "Max 14 towers. Right-click a tower to remove it.\n" +
                 "<color=#94A3B8>SPACE: start wave   F: 2x speed   P: aim mode   H: help</color>\n" +
                 "<color=#94A3B8>WASD/wheel: camera   C: reset   M: mute   R: restart</color>\n" +

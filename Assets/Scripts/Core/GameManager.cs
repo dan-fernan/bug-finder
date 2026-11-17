@@ -20,7 +20,7 @@ namespace BugDefense
         [Header("Waves")]
         public float buildPhaseSeconds = 10f;
         public float firstBuildPhaseSeconds = 20f; // a little extra time to read the help and place towers
-        public int capacityPerWave = 2;
+        public int capacityPerWave = 3; // tuned with the harder waves (was 2)
 
         /// <summary>0-based index of the current wave (during Wave) or the next wave (during Build).</summary>
         public int WaveIndex { get; private set; }

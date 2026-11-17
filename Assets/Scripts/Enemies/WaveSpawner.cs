@@ -45,7 +45,9 @@ namespace BugDefense
                 while (spawnedPerGroup[g] < group.count &&
                        elapsed >= group.startTime + spawnedPerGroup[g] * group.interval)
                 {
-                    Enemy.Spawn(transform, group.type, spawnPos, 1);
+                    // The boss already has hand-tuned HP; the ramp applies to regular bugs only.
+                    float mult = group.type.splitCount > 0 ? 1f : current.hpMultiplier;
+                    Enemy.Spawn(transform, group.type, spawnPos, 1, mult);
                     spawnedPerGroup[g]++;
                     PendingCount--;
                 }
