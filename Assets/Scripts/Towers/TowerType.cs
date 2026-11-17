@@ -29,6 +29,10 @@ namespace BugDefense
         public float barrelLength = 0.8f;
         public float barrelWidth = 0.2f;
 
+        [Header("Kenney models ([Req A] non-basic assets; primitives are the fallback)")]
+        public string[] modelStack;     // tower body pieces, bottom to top
+        public string modelWeapon;      // turret on top; its child part pitches
+
         public string StatLine =>
             $"Rate {fireRate:0.0}/s | Proj {projectileSpeed:0} | Height {height:0.0} | Dmg {damage:0} | Range {range:0}";
     }

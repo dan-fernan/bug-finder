@@ -86,6 +86,7 @@ namespace BugDefense
             Map = new GameObject("GridMap").AddComponent<GridMap>();
             Map.transform.SetParent(transform, false);
             Map.Build();
+            Scenery.Create(transform);
 
             SpawnPortal.Create(transform);
             Prod = ProdServer.Create(transform);
